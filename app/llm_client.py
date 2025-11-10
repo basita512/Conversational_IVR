@@ -32,33 +32,61 @@ class LLMClient:
                     "content": msg["content"]
                 })
 
+            # Log what will be sent to the LLM for visibility/debugging
+            try:
+                logger.info(f"Prepared {len(messages)} user messages to send to LLM (including system prompt).")
+                logger.debug(f"System prompt (truncated): {SYSTEM_PROMPT[:300].replace(chr(10), ' ')}")
+                logger.debug(f"Conversation messages payload: {messages}")
+            except Exception:
+                # Non-fatal: continue even if logging fails
+                logger.exception("Failed to log LLM payload")
+
             # Send request to LLM API with system prompt
+            # Format for Ollama API
+            payload = {
+                "model": "llama2",  # or your chosen model
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    *messages
+                ],
+                "stream": False
+            }
+            logger.debug(f"LLM request payload (truncated): {str(payload)[:800]}")
+
             response = await self.client.post(
                 self.api_url,
-                json={
-                    "system_prompt": SYSTEM_PROMPT,
-                    "messages": messages
-                },
+                json=payload,
                 headers={"Content-Type": "application/json"}
             )
             response.raise_for_status()
 
             data = response.json()
-            if "response" not in data:
-                raise ValueError(f"Invalid response format from LLM API: {data}")
+            if "message" not in data:
+                raise ValueError(f"Invalid response format from Ollama API: {data}")
 
-            llm_response = data["response"]
+            llm_response = data["message"]["content"]
             logger.info(f"Received response from LLM API: {llm_response[:100]}...")
             return llm_response
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error from LLM API: {e.response.status_code} - {e.response.text}")
+            # Log status code and response body for HTTP errors
+            try:
+                body = e.response.text
+            except Exception:
+                body = '<unable to read response body>'
+            logger.error(f"HTTP error from LLM API: {e.response.status_code} - {body}")
             return None
         except httpx.RequestError as e:
-            logger.error(f"Request error to LLM API: {e}")
+            # Log full exception with traceback and request info for network errors
+            logger.exception(f"Request error to LLM API: {e}")
+            try:
+                logger.debug(f"Failed request: {getattr(e, 'request', None)}")
+            except Exception:
+                pass
             return None
         except Exception as e:
-            logger.error(f"Unexpected error calling LLM API: {e}")
+            # Catch-all with traceback to help debugging unexpected issues
+            logger.exception("Unexpected error calling LLM API")
             return None
     
     async def close(self):

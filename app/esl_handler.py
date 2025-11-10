@@ -1,7 +1,12 @@
 """
 ESL event handler for FreeSWITCH events.
 """
-import ESL
+try:
+    import ESL
+except Exception:
+    ESL = None
+    # optionally provide a lightweight stub class for local dev
+    
 from typing import Callable, Dict, Any
 import logging
 
@@ -58,7 +63,7 @@ class ESLHandler:
             if event:
                 await self._handle_event(event)
 
-    async def _handle_event(self, event: ESL.ESLevent):
+    async def _handle_event(self, event: Any):
         """Handle incoming ESL events.
 
         Args:
