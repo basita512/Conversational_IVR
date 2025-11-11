@@ -10,7 +10,7 @@ class Settings():
     freeswitch_password: str = "ClueCon"
     
     # TTS settings
-    tts_output_dir: str = "/ivr_response"
+    tts_output_dir: str = "/usr/src/Conversational_IVR/ivr_response"
     tts_model: str = "tts_models/en/ljspeech/tacotron2-DDC"
     
     # LLM settings

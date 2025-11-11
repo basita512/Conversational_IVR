@@ -30,8 +30,8 @@ class TranscriptionEvent(BaseModel):
 async def test_transcription(event: TranscriptionEvent):
     # Simulate the ESL event flow
     # Use the same logic as handle_transcription
-    agent = SupportAgent()
-    await agent.initialize()
+    # Use the shared agent initialized at startup so conversation history
+    # persists across requests during testing.
     await agent.handle_transcription(event.dict())
     # Find the latest audio file for this UUID
     import os
@@ -40,6 +40,9 @@ async def test_transcription(event: TranscriptionEvent):
     if os.path.exists(audio_file):
         return FileResponse(audio_file, media_type="audio/wav")
     return {"status": "completed"}
+
+# Shared SupportAgent instance (created and initialized at startup)
+agent = None
 
 from app.config import settings
 from app.esl_handler import ESLHandler
@@ -113,6 +116,7 @@ class SupportAgent:
 
             # Get conversation history
             history = self.conversation.get_history(call_uuid)
+            logger.debug(f"Conversation history for {call_uuid} (count={len(history)}): {history}")
 
             # Get LLM response
             response = await self.llm_client.get_response(history)
@@ -163,6 +167,34 @@ def main():
     """Main entry point."""
     agent = SupportAgent()
     asyncio.run(agent.run())
+
+
+# Create the shared agent instance and wire it into FastAPI lifecycle events
+agent = SupportAgent()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize shared agent on application startup."""
+    logger.info("Starting application startup: initializing SupportAgent...")
+    ok = await agent.initialize()
+    if not ok:
+        logger.error("SupportAgent failed to initialize at startup")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown."""
+    logger.info("Shutting down SupportAgent and closing LLM client")
+    try:
+        await agent.llm_client.close()
+    except Exception:
+        logger.exception("Error closing LLM client")
+    if agent.esl_handler:
+        try:
+            agent.esl_handler.disconnect()
+        except Exception:
+            logger.exception("Error disconnecting ESL handler")
 
 if __name__ == "__main__":
     main()
