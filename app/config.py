@@ -4,11 +4,6 @@ class Settings():
     # Base directory
     base_dir: Path = Path(__file__).resolve().parent.parent
     
-    # FreeSWITCH ESL settings
-    freeswitch_host: str = "localhost"
-    freeswitch_port: int = 8021
-    freeswitch_password: str = "ClueCon"
-    
     # TTS settings
     tts_output_dir: str = "/usr/src/Conversational_IVR/ivr_response"
     tts_model: str = "tts_models/en/ljspeech/tacotron2-DDC"

@@ -1,38 +1,87 @@
-# Support Agent ESL Integration
+# Conversational IVR
 
-FreeSWITCH ESL integration with LLM and TTS for automated customer service responses.
+A lightweight API service that integrates LLM and TTS for generating natural-sounding voice responses to customer queries.
 
 ## Features
 
-- FreeSWITCH ESL event handling
-- LLM integration for intelligent responses
+- REST API endpoint for processing transcriptions
+- LLM integration for intelligent response generation
 - Coqui TTS for natural speech synthesis
 - Audio format conversion (8kHz mono WAV)
 - Conversation history management
 - Async/await architecture
+- Detailed request/response logging
 
 ## Project Structure
 
 ```
 app/
-├── main.py              # ESL connection & event loop
-├── config.py            # Configuration settings
-├── esl_handler.py       # FreeSWITCH ESL integration
+├── main.py              # FastAPI application setup
+├── config.py            # Application configuration
+├── freeswitch_client.py # API endpoints for FreeSWITCH integration
 ├── llm_client.py        # LLM API client
 ├── tts_client.py        # Coqui TTS integration
-├── audio_converter.py   # WAV conversion utilities
-└── conversation.py      # History management
+└── conversation.py      # Conversation history management
 ```
+
+## API Endpoints
+
+### Process Transcription
+
+```
+POST /test/transcription
+```
+
+**Request Body:**
+```json
+{
+    "call_uuid": "unique-call-identifier",
+    "transcription": "Customer's spoken text"
+}
+```
+
+**Response:**
+- Returns audio file with speech response
+- Includes metadata in response headers:
+  - `X-File-Metadata`: JSON string with file details
+  - `X-LLM-Response`: The generated text response
 
 ## Prerequisites
 
-1. FreeSWITCH server with:
-   - ESL enabled and configured
-   - mod_vosk installed and configured for STT
-   - Proper audio settings (8kHz, mono)
+1. Python 3.8+
+2. LLM API server running (default: http://localhost:11434/api/chat)
+3. Required Python packages (install via `pip install -r requirements.txt`)
 
-2. LLM API server running
-3. Python 3.8+ installed
+## Configuration
+
+Edit `app/config.py` to customize:
+- TTS model and output directory
+- LLM API URL and timeout settings
+- Conversation history length
+
+## Running the Service
+
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Start the FastAPI server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+3. The API will be available at `http://localhost:8000`
+
+## Testing
+
+Use the test endpoint with a tool like curl:
+
+```bash
+curl -X POST "http://localhost:8000/test/transcription" \
+     -H "Content-Type: application/json" \
+     -d '{"call_uuid": "test123", "transcription": "Hello, how are you?"}'
+```
 
 ## Installation
 

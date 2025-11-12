@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class LLMClient:
     def __init__(self, api_url=None, timeout=None):
         """Initialize LLM client.
-
+ 
         Args:
             api_url: Optional override for LLM API URL
             timeout: Optional override for LLM API timeout

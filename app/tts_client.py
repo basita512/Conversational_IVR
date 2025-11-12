@@ -61,17 +61,17 @@ class TTSClient:
             response_count = 0
             if uuid:
                 # Count existing response files for this UUID
-                pattern = f"response_{uuid}_*"
+                pattern = f"response:{uuid}_*"
                 response_count = len([f for f in os.listdir(self.output_dir) 
-                                   if f.startswith(f"response_{uuid}_") and f.endswith('.wav')])
+                                   if f.startswith(f"response:{uuid}_") and f.endswith('.wav')])
             
             # Increment counter for the new response
             response_count += 1
             
             if uuid:
-                file_name = f"response_{uuid}_{response_count:02d}_{timestamp}.wav"
+                file_name = f"response:{response_count:02d}_{uuid}_{timestamp}.wav"
             else:
-                file_name = f"response_{response_count:02d}_{timestamp}.wav"
+                file_name = f"response:{response_count:02d}_{timestamp}.wav"
             output_path = os.path.join(self.output_dir, file_name)
 
             # Try generating speech with the original text first.
