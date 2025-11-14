@@ -28,8 +28,8 @@ class Conversation:
         })
 
         # Keep only the last 10 messages to avoid context length issues
-        if len(self.conversations[uuid]) > 10:
-            self.conversations[uuid] = self.conversations[uuid][-10:]
+        if len(self.conversations[uuid]) > 30:
+            self.conversations[uuid] = self.conversations[uuid][-30:]
 
     def get_history(self, uuid: str) -> List[Dict[str, str]]:
         """Get conversation history for a specific call.

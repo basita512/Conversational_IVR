@@ -39,6 +39,27 @@ logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
 
+async def warm_up_llm():
+    """Preload Ollama model to prevent first-request cold start."""
+    try:
+        llm = LLMClient()
+        payload = {
+            "model": "zenius-llm",
+            "messages": [{"role": "user", "content": "Warmup request - respond with OK"}],
+            "stream": False
+        }
+        await llm.client.post(llm.api_url, json=payload)
+        logger.info("🔥 LLM model preloaded successfully (no cold start expected).")
+        await llm.close()
+    except Exception as e:
+        logger.warning(f"Warm-up failed: {e}")
+
+# # Call this in app startup event
+# @app.on_event("startup")
+# async def on_startup():
+#     await warm_up_llm()
+
+
 class Conversational_IVR:
     def __init__(self):
         """Initialize the support agent components."""
@@ -122,6 +143,7 @@ agent = Conversational_IVR()
 
 @app.on_event("startup")
 async def startup_event():
+    await warm_up_llm()
     """Initialize shared agent on application startup."""
     logger.info("Starting application startup: initializing Conversational_IVR...")
     ok = await agent.initialize()

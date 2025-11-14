@@ -6,7 +6,7 @@ class Settings():
     
     # TTS settings
     tts_output_dir: str = "/usr/src/Conversational_IVR/ivr_response"
-    tts_model: str = "tts_models/en/ljspeech/tacotron2-DDC"
+    tts_model: str = "tts_models/en/ljspeech/glow-tts"
     
     # LLM settings
     llm_api_url: str = "http://localhost:11434/api/chat"

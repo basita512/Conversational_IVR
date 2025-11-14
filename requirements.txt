@@ -1,30 +1,30 @@
+# fastapi==0.115.0
+# uvicorn==0.32.0
+# httpx==0.27.2
+# pydantic==2.9.2
+# pydantic-settings==2.1.0
+# # freeswitchESL==1.4.18
+# TTS==0.22.0
+# soundfile==0.12.1
+# numpy==1.26.3
+
+# --- Core Framework ---
 fastapi==0.115.0
 uvicorn==0.32.0
 httpx==0.27.2
 pydantic==2.9.2
 pydantic-settings==2.1.0
-# freeswitchESL==1.4.18
+
+# --- Audio / Speech Layer ---
 TTS==0.22.0
 soundfile==0.12.1
 numpy==1.26.3
 
-# python 3.9<= v < 3.12
+# --- LLM + RAG Integration ---
+chromadb==0.5.3
+sentence-transformers==3.0.1
+tqdm==4.66.1
+orjson==3.9.15
+python-dotenv==1.0.1
 
 
-# # --- Core Web Framework ---
-# fastapi==0.115.0
-# uvicorn==0.32.0
-# httpx==0.27.2
-
-# # --- Data Modeling ---
-# pydantic==2.9.2
-# pydantic-settings==2.1.0
-
-# # --- Audio + TTS ---
-# TTS==0.22.0
-# soundfile==0.12.1
-# numpy==1.26.3
-# conqui-tts
-
-# # --- FreeSWITCH ESL (GitHub fork, since PyPI version breaks on Python 3.11) ---
-# git+https://github.com/voxserv/freeswitchESL.git@master
