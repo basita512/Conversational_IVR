@@ -1,7 +1,7 @@
 import logging
 import httpx
 from app.config import settings
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 import chromadb
 import asyncio
 
@@ -9,13 +9,18 @@ logger = logging.getLogger(__name__)
 
 # Load embedding model + ChromaDB at startup (global cache)
 try:
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    client = chromadb.PersistentClient(path="./zenius_db")
-    # collection = client.get_or_create_collection("zenius_kb")
+    # Embedding model for initial retrieval
+    model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+    
+    # Cross-encoder model for re-ranking
+    reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+    
+    client = chromadb.PersistentClient(path="./Data/zenius_db")
     collection = client.get_collection("zenius_kb")
-    logger.info("? Zenius KB successfully loaded into memory for RAG retrieval.")
+    logger.info("✅ Zenius KB successfully loaded into memory for RAG retrieval.")
+    logger.info("✅ Re-ranker model loaded successfully.")
 except Exception as e:
-    logger.exception("? Failed to initialize ChromaDB or embedding model.")
+    logger.exception("❌ Failed to initialize ChromaDB or embedding model.")
 
 
 class LLMClient:
@@ -26,26 +31,69 @@ class LLMClient:
         self.client = httpx.AsyncClient(timeout=self.timeout)
         logger.info(f"LLMClient initialized with API URL: {self.api_url}")
 
-    async def _retrieve_context(self, user_query: str, n_results: int = 3) -> str:
-        """Retrieve top relevant KB chunks using ChromaDB for contextual augmentation."""
+    async def _retrieve_context(self, user_query: str, initial_results: int = 10, final_results: int = 1) -> str:
+        """
+        Retrieve top relevant KB chunks using two-stage retrieval:
+        1. Retrieve top-N chunks using semantic similarity (embedding)
+        2. Re-rank using cross-encoder and return top-K
+        
+        Args:
+            user_query: The user's query string
+            initial_results: Number of chunks to retrieve initially (default: 10)
+            final_results: Number of top chunks to return after re-ranking (default: 1)
+        
+        Returns:
+            Concatenated context string from top re-ranked chunks
+        """
         try:
-            logger.info(f"?? Retrieving KB context for query: {user_query}")
+            logger.info(f"🔍 Retrieving KB context for query: {user_query}")
+            
+            # Stage 1: Initial retrieval using embeddings (top-10)
             query_embedding = model.encode(user_query)
             
-            # ? Convert ndarray to list
+            # Convert ndarray to list
             if hasattr(query_embedding, "tolist"):
                 query_embedding = query_embedding.tolist()
 
-            results = collection.query(query_embeddings=[query_embedding], n_results=n_results)
+            results = collection.query(
+                query_embeddings=[query_embedding], 
+                n_results=initial_results
+            )
 
             if not results or not results["documents"] or not results["documents"][0]:
-                logger.warning("?? No KB context found for this query.")
+                logger.warning("⚠️ No KB context found for this query.")
                 return ""
 
             docs = results["documents"][0]
-            context = "\n".join(docs)
-            logger.debug(f"Retrieved {len(docs)} KB chunks for context.")
-            return context
+            logger.info(f"📚 Retrieved {len(docs)} initial KB chunks")
+            
+            # Stage 2: Re-ranking using cross-encoder
+            if len(docs) > 0:
+                # Create query-document pairs for re-ranking
+                pairs = [[user_query, doc] for doc in docs]
+                
+                # Get re-ranking scores
+                scores = reranker.predict(pairs)
+                
+                # Sort documents by score (descending)
+                ranked_indices = scores.argsort()[::-1]
+                
+                # Select top-K documents after re-ranking
+                top_docs = [docs[idx] for idx in ranked_indices[:final_results]]
+                
+                logger.info(f"🎯 Re-ranked and selected top-{final_results} chunk(s)")
+                logger.debug(f"Top re-ranking scores: {sorted(scores, reverse=True)[:final_results]}")
+                
+                # Log the actual context being used
+                for i, doc in enumerate(top_docs, 1):
+                    preview = doc[:200] + '...' if len(doc) > 200 else doc
+                    logger.info(f"   Context chunk {i}: {preview}")
+                
+                context = "\n\n".join(top_docs)
+                return context
+            
+            return ""
+            
         except Exception as e:
             logger.exception("Error retrieving KB context.")
             return ""
@@ -60,20 +108,40 @@ class LLMClient:
                     user_query = msg["content"]
                     break
 
-            # 1?? Fetch relevant KB context from Chroma
-            kb_context = await self._retrieve_context(user_query)
+            if not user_query:
+                logger.warning("⚠️ No user query found in conversation history")
+                return None
 
-                    
+            # 1️⃣ Fetch relevant KB context from Chroma (top-10, re-ranked to top-1)
+            kb_context = await self._retrieve_context(
+                user_query, 
+                initial_results=10, 
+                final_results=1
+            )
 
-            # 2?? Prepare messages for LLM API (system prompt now inside model)
+            # 2️⃣ Prepare messages for LLM API
             messages = []
-            for i, msg in enumerate(conversation_history):
+            context_injected = False
+            
+            for msg in conversation_history:
                 content = msg["content"]
                 
-                # Inject KB context into the LAST user message (most recent query)
-                if msg["role"] == "user" and content == user_query and kb_context:
-                    content = f"[Knowledge Base Context: {kb_context}]\n\nUser query: {content}"
-                    logger.info(f"💉 Injected KB context into user message")
+                # Inject KB context ONLY into the last user message (current query)
+                # Check by comparing with user_query AND ensuring we haven't injected yet
+                if (msg["role"] == "user" and 
+                    content == user_query and 
+                    kb_context and 
+                    not context_injected):
+                    
+                    content = (
+                        f"You should respond as a Voice Assistant of Zenius IT services. "
+                        f"### Relevant Knowledge Base Information ###\n"
+                        f"{kb_context}\n"
+                        f"### End of Knowledge Base Information ###\n\n"
+                        f"User Question: {content}"
+                    )
+                    context_injected = True
+                    logger.info(f"💉 Injected KB context into the latest user message")
                 
                 messages.append({
                     "role": msg["role"],
@@ -83,31 +151,8 @@ class LLMClient:
             # Log final messages being sent
             logger.info(f"📤 Sending {len(messages)} messages to LLM")
             for i, msg in enumerate(messages, 1):
-                preview = msg['content'][:150] + '...' if len(msg['content']) > 150 else msg['content']
-                logger.info(f"   {i}. {msg['role'].upper()}: {preview}")
-
-            # for msg in conversation_history:
-            #     messages.append({
-            #         "role": msg["role"],
-            #         "content": msg["content"]
-            #     })
-
-            # # Inject KB context at the start of conversation
-            # if kb_context:
-            #     messages.insert(0, {
-            #         "role": "system",
-            #         "content": (
-            #             # f"Zenius Knowledge Base Context:\n{kb_context}\n\n"
-            #             # "You are Zenius VoiceIQ assistant. "
-            #             # "Respond concisely (one to two short sentences only). "
-            #             # "Avoid repetition and unnecessary detail."
-            #             f"Zenius Knowledge Base Context:\n{kb_context}\n\n"
-            #             "You represent Zenius VoiceIQ, an intelligent enterprise voice platform. "
-            #             "Always answer as the company ('we'), not as 'I'. "
-            #             "Keep your tone professional and concise (one short sentence). "
-            #             "Do not refer to yourself as an assistant."
-            #         )
-            #     })
+                preview = msg['content'][:200] + '...' if len(msg['content']) > 200 else msg['content']
+                logger.info(f"   Message {i} [{msg['role'].upper()}]: {preview}")
 
             payload = {
                 "model": "zenius-llm",  # custom Ollama model with built-in system prompt
@@ -117,7 +162,7 @@ class LLMClient:
 
             logger.debug(f"LLM payload (truncated): {str(payload)[:800]}")
 
-            # 3?? Send to Ollama API
+            # 3️⃣ Send to Ollama API
             response = await self.client.post(
                 self.api_url,
                 json=payload,
@@ -130,7 +175,7 @@ class LLMClient:
                 raise ValueError(f"Invalid response format from Ollama API: {data}")
 
             llm_response = data["message"]["content"]
-            logger.info(f"? Received response from LLM API: {llm_response[:100]}...")
+            logger.info(f"✅ Received response from LLM API: {llm_response[:100]}...")
             return llm_response
 
         except httpx.HTTPStatusError as e:

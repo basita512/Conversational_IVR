@@ -54,11 +54,6 @@ async def warm_up_llm():
     except Exception as e:
         logger.warning(f"Warm-up failed: {e}")
 
-# # Call this in app startup event
-# @app.on_event("startup")
-# async def on_startup():
-#     await warm_up_llm()
-
 
 class Conversational_IVR:
     def __init__(self):
@@ -97,7 +92,7 @@ class Conversational_IVR:
             # Get conversation history
             history = self.conversation.get_history(call_uuid)
             logger.debug(f"Conversation history for {call_uuid} (count={len(history)}): {history}")
-
+ 
             # Get LLM response
             response = await self.llm_client.get_response(history)
 

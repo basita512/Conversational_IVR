@@ -59,6 +59,46 @@ class TTSClient:
             self.initialized = False
             return False
 
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize text by removing special characters and normalizing whitespace.
+        
+        Args:
+            text: The text to sanitize
+            
+        Returns:
+            str: Sanitized text
+        """
+        import re
+        # Remove non-ASCII characters
+        text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+        # Remove special characters except basic punctuation
+        text = re.sub(r'[^\w\s.,!?\-]', ' ', text)
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
+    def _clean_text_for_tts(self, text: str) -> str:
+        """Clean text before TTS by removing intent tags and non-ASCII characters.
+        
+        Args:
+            text: The text to clean
+            
+        Returns:
+            str: Cleaned text with intent tags and non-ASCII characters removed
+        """
+        import re
+        
+        # First remove intent tags like <intent>sales</intent>
+        cleaned = re.sub(r'<intent>.*?</intent>', '', text)
+        
+        # Then remove non-ASCII characters
+        cleaned = re.sub(r'[^\x00-\x7F]+', ' ', cleaned)
+        
+        # Clean up any extra whitespace that might have been left
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        
+        return cleaned
+
     async def generate_speech(self, text: str, uuid: Optional[str] = None) -> Optional[str]:
         """Generate speech from text.
 
@@ -84,10 +124,9 @@ class TTSClient:
             # Count existing responses for this UUID to get the next number
             response_count = 0
             if uuid:
-                # Count existing response files for this UUID
-                pattern = f"response:{uuid}_*"
+                # Match files with pattern: response_XX_uuid_*.wav
                 response_count = len([f for f in os.listdir(self.output_dir) 
-                                   if f.startswith(f"response:{uuid}_") and f.endswith('.wav')])
+                                   if f.startswith(f"response_") and f"_{uuid}_" in f and f.endswith('.wav')])
             
             # Increment counter for the new response
             response_count += 1
@@ -98,10 +137,15 @@ class TTSClient:
                 file_name = f"response_{response_count:02d}_{timestamp}.wav"
             output_path = os.path.join(self.output_dir, file_name)
 
-            # Try generating speech with the original text first.
+            # Clean the text by removing intent tags before TTS
+            clean_text = self._clean_text_for_tts(text)
+            logger.debug(f"Original text: {text}")
+            logger.debug(f"Cleaned text for TTS: {clean_text}")
+
+            # Try generating speech with the cleaned text
             try:
                 self.tts.tts_to_file(
-                    text=text,
+                    text=clean_text,
                     file_path=output_path,
                     sample_rate=8000,  # Required sample rate for FreeSWITCH
                     save_attention=False,
@@ -115,9 +159,7 @@ class TTSClient:
 
             # Fallback 1: sanitize text (remove non-ascii / emojis and unsupported chars)
             try:
-                safe_text = re.sub(r"[^\x00-\x7F]+", "", text)  # remove non-ascii
-                safe_text = safe_text.replace('%', ' percent')
-                safe_text = safe_text.strip()
+                safe_text = self._sanitize_text(clean_text)
                 if len(safe_text) >= 3:
                     self.tts.tts_to_file(
                         text=safe_text,
@@ -134,7 +176,7 @@ class TTSClient:
             # Fallback 2: try joining sentences into a single short paragraph and retry
             try:
                 # Simple sentence splitter on periods/newlines — join into one chunk
-                parts = re.split(r"[\.\n]+", text)
+                parts = re.split(r"[\.\n]+", clean_text)
                 joined = ' '.join([p.strip() for p in parts if len(p.strip()) > 3])
                 if joined and len(joined) >= 3:
                     self.tts.tts_to_file(
