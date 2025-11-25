@@ -34,7 +34,7 @@ def main():
     collection = client.get_or_create_collection("zenius_kb")
 
     print("🧩 Extracting text chunks from JSON...")
-    with open("zenius.json", "r", encoding="utf-8") as f:
+    with open("zenius_generated_customer_faqs.txt", "r", encoding="utf-8") as f:
         data = json.load(f)
 
     text_chunks = extract_text_from_json(data)
@@ -47,7 +47,7 @@ def main():
             collection.add(
                 documents=[chunk],
                 embeddings=[embedding.tolist()],
-                metadatas=[{"source": "zenius.json"}],
+                metadatas=[{"source": "zenius_generated_customer_faqs.txt"}],
                 ids=[str(i)]
             )
             added_count += 1
