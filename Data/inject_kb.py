@@ -15,11 +15,11 @@ nltk.download('punkt_tab')
 
 # === CONFIG ===
 KB_FILES = [
-    "Zenius IT Services.docx",
+    "your_file.docx",
 ]
 
-CHROMA_PATH = "./zenius_db"
-COLLECTION_NAME = "zenius_kb"
+CHROMA_PATH = "./vector_db"
+COLLECTION_NAME = "vector_kb"
 
 # === CHUNKING CONFIG ===
 MAX_TOKENS = 200     # Target chunk size
