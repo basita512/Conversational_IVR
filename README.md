@@ -2,7 +2,7 @@
 
 A production-ready voice assistant system that combines FreeSWITCH telephony, speech recognition, and AI-powered conversation management to create natural voice interactions. The system supports real-time audio streaming, intelligent conversation handling, and seamless call transfers.
 
-## 🚀 Features
+## Features
 
 ### Core Components
 - **RAG System**: Advanced Retrieval-Augmented Generation using ChromaDB and sentence-transformers
@@ -22,7 +22,7 @@ A production-ready voice assistant system that combines FreeSWITCH telephony, sp
 - **Configuration Management**: Environment-based configuration system
 - **Error Handling**: Robust error handling and recovery mechanisms
 
-## 🧠 RAG System (Retrieval-Augmented Generation)
+## RAG System (Retrieval-Augmented Generation)
 
 The system implements a sophisticated RAG pipeline that combines the power of large language models with your organization's specific knowledge base for accurate, up-to-date responses.
 
@@ -121,7 +121,7 @@ The system implements a sophisticated two-stage retrieval process with re-rankin
     reranker = CrossEncoder('your-cross-encoder-model')
     ```
 
-## 🔧 Customizing the LLM Model
+## Customizing the LLM Model
 
 You can customize the LLM's behavior by modifying the `Data/Modelfile` and creating a custom model using Ollama.
 
@@ -173,7 +173,7 @@ Update your application's configuration to use the new model:
 LLM_MODEL=custom-llm
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 ```bash
@@ -216,7 +216,7 @@ TTS_MODEL=tts_models/en/ljspeech/tacotron2-DDC
 TTS_OUTPUT_DIR=./tts_output
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 1. **Copy the example environment file**
    ```bash
@@ -275,7 +275,7 @@ Check the application logs for real-time debugging:
 tail -f logs/app.log
 ```
 
-## 🌐 System Architecture
+## System Architecture
 
 ### Component Diagram
 ```
@@ -304,7 +304,7 @@ tail -f logs/app.log
 6. Main application processes the text with LLM
 7. Response is converted to speech and sent back to the caller
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Process Transcription
 
@@ -328,7 +328,7 @@ POST /test/transcription
 - Audio file in WAV format (16kHz, mono)
 
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [FreeSWITCH Documentation](https://freeswitch.org/confluence/display/FREESWITCH/FreeSWITCH+Documentation)
 - [Faster-Whisper GitHub](https://github.com/guillaumekln/faster-whisper)
@@ -344,7 +344,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📡 WebSocket API
+## WebSocket API
 
 ### Connection
 - **Endpoint:** `ws://localhost:8000/ws`
@@ -385,7 +385,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 }
 ```
 
-## 🧪 Testing
+## Testing
 
 Test the transcription endpoint:
 
@@ -402,7 +402,7 @@ curl -X POST "http://localhost:8000/api/transcribe" \
 - Format: PCM 16-bit
 - Encoding: Raw audio bytes
 
-## 🛠️ System Requirements
+## System Requirements
 
 ### Main Application
 - Python 3.8+
